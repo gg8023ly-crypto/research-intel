@@ -1,0 +1,14 @@
+{
+  "name": "research-intel",
+  "version": "1.0.0",
+  "description": "通用行业情报调研系统",
+  "author": "gg8023ly-crypto",
+  "tags": ["research", "intelligence", "industry", "multi-agent"],
+  "requires": [],
+  "optional": ["brave-search", "tavily-search", "customs-trade-compliance"],
+  "homepage": "https://github.com/gg8023ly-crypto/research-intel",
+  "license": "MIT",
+  "openclaw": {
+    "minVersion": "2026.1.0"
+  }
+}
