@@ -5,7 +5,7 @@ description: |
   支持单模型运行，可选配额外模型增强。存储自动切换（飞书/本地）。
   触发词：调研、research、行业分析、情报、帮我研究一下
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   author: gg8023ly-crypto
 ---
 
@@ -51,6 +51,19 @@ metadata:
 ---
 
 ## 工作流详解
+
+### 🎯 主调度职责说明
+
+**整个调研流程由主 Agent（即接收用户指令的那个 Agent）统一调度**，具体分工如下：
+
+| 角色 | 职责 | 谁来做 |
+|------|------|--------|
+| 主调度 | 分析主题、分配角色、spawn 子 Agent、汇总结果、向用户汇报 | 主 Agent |
+| 研究员 × N | 独立搜索、独立分析、写产出文件 | 各自独立的子 Agent |
+| 审核员 | 读取所有研究员产出、打分、写审核报告 | 独立子 Agent |
+| 整合员 | 读取所有产出、整合成最终报告 | 独立子 Agent |
+
+> ⚠️ **关键原则**：研究员之间互相隔离，不能看到彼此的产出。只有审核员和整合员才能看到全部内容。这是保证"独立视角"的核心机制。
 
 ### 模式判断逻辑
 
@@ -150,6 +163,8 @@ ELSE IF 用户问具体问题（非调研指令）
 
 ### 阶段2：并行调研
 
+> ⚠️ **重要**：本阶段由**主 Agent（调度者）**负责 spawn，不是由某个子 Agent 代劳。每个研究 Agent 完全独立运行，互相不可见对方的产出，确保视角独立性。
+
 **执行步骤：**
 
 1. 为每个角色创建工作目录：
@@ -157,21 +172,33 @@ ELSE IF 用户问具体问题（非调研指令）
    {workspace}/research-intel/{topic-slug}/round-{N}/
    ```
 
-2. 使用 `sessions_spawn` 并行启动 N 个研究 Agent（每个角色一个），**`runTimeoutSeconds` 设为 1800（30分钟）**
+2. **在同一条消息中**，使用 `sessions_spawn` **同时**启动 N 个研究 Agent（每个角色一个），`runTimeoutSeconds` 设为 1800（30分钟）：
+   - 每个 Agent 使用不同的 `label`（如 `research-policy`、`research-carmaker`）
+   - 每个 Agent 的 prompt 只包含自己角色的任务，**不包含其他角色的信息**
+   - 每个 Agent 独立搜索、独立分析、独立写文件
 
-3. 每个研究 Agent 按照【研究 Agent Prompt 模板】执行
-
-4. 等待所有 Agent 完成，结果写入：
+3. 等待所有 Agent 完成，结果分别写入：
    ```
    {workspace}/research-intel/{topic-slug}/round-{N}/agent-{role-slug}.md
    ```
+   每份文件独立，互不干扰。
 
-5. 收集所有 Agent 产出，进入阶段3
+4. 全部完成后，主 Agent 收集所有产出路径，进入阶段3
 
 **topic-slug 生成规则：**
 - 中文主题：拼音首字母 + 关键词，如 `ai-chip-market`
 - 英文主题：小写 + 连字符，如 `ev-market-china`
-- 时间戳后缀（避免冲突）：`ai-chip-market-20240315`
+- 时间戳后缀（避免冲突）：`ai-chip-market-20260323`
+
+**并行 spawn 示例（伪代码）：**
+```
+# 同时发出，不等待，真正并行
+spawn(label="research-policy",   prompt=角色1任务, runTimeoutSeconds=1800)
+spawn(label="research-carmaker", prompt=角色2任务, runTimeoutSeconds=1800)
+spawn(label="research-supply",   prompt=角色3任务, runTimeoutSeconds=1800)
+spawn(label="research-market",   prompt=角色4任务, runTimeoutSeconds=1800)
+# 等待全部完成后再继续
+```
 
 ---
 
